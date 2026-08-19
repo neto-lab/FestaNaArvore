@@ -1,29 +1,29 @@
-# Etapa 1: Usa a imagem oficial do Node para compilar o painel web
-FROM node:18-slim AS builder
+# Etapa 1: Baixa e descompacta a interface estável do Mumble-Web
+FROM alpine:3.18 AS builder
 WORKDIR /app
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-RUN git clone https://github.com . && npm install && npm run build
+RUN apk add --no-cache wget tar
+RUN wget https://github.com && \
+    tar -xzf master.tar.gz --strip-components=1
 
-# Etapa 2: Monta o servidor final rodando no Ubuntu estável
+# Etapa 2: Executa o servidor final estável no Ubuntu
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instala o servidor Mumble, o Supervisor e o runtime básico do Node
+# Instala o servidor de voz Mumble e o gerenciador Supervisor
 RUN apt-get update && apt-get install -y \
     supervisor \
     mumble-server \
-    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copia os arquivos que foram compilados na Etapa 1
+# Copia os arquivos baixados na Etapa 1
 COPY --from=builder /app /app
 
-# Configura as permissões para a cota gratuita do Render
+# Configura as permissões exigidas pela cota gratuita do Render
 RUN mkdir -p /var/run/mumble-server /var/lib/mumble-server && chown -R 1000:1000 /var/lib/mumble-server /var/run/mumble-server
 
-# Copia as regras do supervisor
+# Copia o arquivo de regras
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 7860
